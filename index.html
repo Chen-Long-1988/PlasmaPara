@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASTRA等离子体参数计算器</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --primary: #2563eb;
+            --border: #e2e8f0;
+            --warning: #dc2626;
+        }
+        body {
+            font-family: "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .card-header { background: #f1f5f9; padding: 15px 20px; font-weight: 600; border-bottom: 1px solid var(--border); }
+        .card-body { padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9em; font-weight: 500; color: var(--text-main); }
+        .input-group { display: flex; gap: 5px; align-items: center; }
+        input, select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95em; width: 100%; box-sizing: border-box; }
+        input:focus, select:focus { outline: 2px solid var(--primary); border-color: var(--primary); }
+        .result-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .result-row:last-child { border-bottom: none; }
+        .result-label { font-weight: 500; font-size: 0.95em; }
+        .result-symbol { color: var(--text-sub); font-family: monospace; font-size: 0.85em; margin-left: 5px; }
+        .result-value { font-family: monospace; color: var(--primary); font-weight: 600; }
+        .warning { color: var(--warning); }
+        .section-title { font-size: 0.75em; text-transform: uppercase; letter-spacing: 1px; color: var(--text-sub); margin-top: 20px; margin-bottom: 10px; font-weight: 700; }
+        .section-title:first-child { margin-top: 0; }
+        h1 { margin: 0 0 5px 0; color: var(--text-main); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ASTRA等离子体参数计算器 v1.0</h1>
+            <p style="color: var(--text-sub); margin: 0;">等离子体参数、CFL条件验证</p>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">输入参数</div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>电子温度 (Te)</label>
+                        <div class="input-group">
+                            <input type="number" id="teVal" value="2" step="any">
+                            <select id="teUnit" style="width: 80px; flex-shrink: 0;">
+                                <option value="eV" selected>eV</option>
+                                <option value="K" >K</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>电子密度 (ne)</label>
+                        <div class="input-group">
+                            <input type="number" id="neBase" value="1" step="any" style="width: 80px;">
+                            <span style="white-space: nowrap">× 10^</span>
+                            <input type="number" id="neExp" value="18" step="1" style="width: 70px;">
+                            <select id="neUnit">
+                                <option value="m^-3" selected>m⁻³</option>
+                                <option value="cm^-3" >cm⁻³</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>离子种类</label>
+                        <select id="ionSpecies">
+                            <option value="H" >H</option><option value="He" >He</option><option value="Ar" selected>Ar</option><option value="Kr" >Kr</option><option value="Xe" >Xe</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>磁场强度 (B) [Tesla]</label>
+                        <input type="number" id="bField" value="0.01" step="any">
+                    </div>
+                    <div class="section-title">PIC模拟参数</div>
+                    <div class="form-group">
+                        <label>时间步长 (dt) [s]</label>
+                        <input type="number" id="dt" value="1e-12" step="any">
+                    </div>
+                    <div class="form-group">
+                        <label>空间步长 (dx) [m]</label>
+                        <input type="number" id="dx" value="1e-6" step="any">
+                    </div>
+                    <div class="form-group">
+                        <label>中性气体压强</label>
+                        <div class="input-group">
+                            <input type="number" id="pressureVal" value="1" step="any">
+                            <select id="pressureUnit" style="width: 100px; flex-shrink: 0;">
+                                <option value="Pa" selected>Pa</option>
+                                <option value="Torr">Torr</option>
+                                <option value="mTorr">mTorr</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+           
+            <div class="card">
+                <div class="card-header">计算结果</div>
+                <div class="card-body" id="resultsContainer"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">CFL条件验证</div>
+                <div class="card-body" id="cflContainer"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const EPS0 = 8.8541878128e-12;
+        const KB = 1.380649e-23;
+        const EC = 1.602176634e-19;
+        const ME = 9.10938356e-31;
+        const C0 = 2.99792458e8;
+       
+        const ION_MASS = {
+            'H': 1.6726219e-27,
+            'He': 6.6464764e-27,
+            'Ar': 6.6335209e-26,
+            'Kr': 1.3923e-25,
+            'Xe': 2.1802e-25
+        };
+        function calculate() {
+            const teVal = parseFloat(document.getElementById('teVal').value) || 0;
+            const teUnit = document.getElementById('teUnit').value;
+            const neBase = parseFloat(document.getElementById('neBase').value) || 0;
+            const neExp = parseFloat(document.getElementById('neExp').value) || 0;
+            const neUnit = document.getElementById('neUnit').value;
+            const ion = document.getElementById('ionSpecies').value;
+            const bField = parseFloat(document.getElementById('bField').value) || 0;
+            const dt = parseFloat(document.getElementById('dt').value) || 0;
+            const dx = parseFloat(document.getElementById('dx').value) || 0;
+            const pressureVal = parseFloat(document.getElementById('pressureVal').value) || 0;
+            const pressureUnit = document.getElementById('pressureUnit').value;
+            let ne = neBase * Math.pow(10, neExp);
+            if (neUnit === 'cm^-3') ne *= 1e6;
+            let teJoules = (teUnit === 'eV') ? teVal * EC : teVal * KB;
+            const mi = ION_MASS[ion];
+            const lambdaD = Math.sqrt((EPS0 * teJoules) / (ne * Math.pow(EC, 2)));
+            const wpe = Math.sqrt((ne * Math.pow(EC, 2)) / (EPS0 * ME));
+            const fpe = wpe / (2 * Math.PI);
+            const wpi = Math.sqrt((ne * Math.pow(EC, 2)) / (EPS0 * mi));
+            const fpi = wpi / (2 * Math.PI);
+            const fcut = fpe;
+            const vte = Math.sqrt((2 * teJoules) / ME);
+            const wce = (EC * bField) / ME;
+            const fce = wce / (2 * Math.PI);
+            const wci = (EC * bField) / mi;
+            const fci = wci / (2 * Math.PI);
+            const rce = vte / wce;
+            const rci = Math.sqrt((2 * teJoules) / mi) / wci;
+            const ND = (4 / 3) * Math.PI * ne * Math.pow(lambdaD, 3);
+            const deltaE = C0 / wpe;
+            let pressurePa = pressureVal;
+            if (pressureUnit === 'Torr') pressurePa *= 133.322;
+            if (pressureUnit === 'mTorr') pressurePa *= 0.133322;
+            // Note: pressurePa is calculated but not used in CFL; available for future extensions
+
+            const results = [
+                { section: '基本尺度' },
+                { l: '德拜长度', s: 'λ_D', v: lambdaD, u: 'm' },
+                { l: '等离子体参数', s: 'N_D', v: ND, u: '' },
+                { l: '电子惯性长度', s: 'δ_e', v: deltaE, u: 'm' },
+                { section: '频率' },
+                { l: '电子等离子体频率', s: 'w_pe', v: wpe, u: 'rad/s' },
+                { l: '离子等离子体频率', s: 'w_pi', v: wpi, u: 'rad/s' },
+                { l: '截止频率', s: 'f_cutoff', v: fcut, u: 'Hz' },
+                { section: '磁化等离子体' },
+                { l: '电子回旋频率', s: 'w_ce', v: wce, u: 'rad/s' },
+                { l: '离子回旋频率', s: 'w_ci', v: wci, u: 'rad/s' },
+                { l: '电子回旋半径', s: 'r_ce', v: rce, u: 'm' },
+                { l: '离子回旋半径', s: 'r_ci', v: rci, u: 'm' },
+                { section: '热学参数' },
+                { l: '电子热速度', s: 'v_te', v: vte, u: 'm/s' }
+            ];
+            const html = results.map(r => {
+                if (r.section) return '<div class="section-title">' + r.section + '</div>';
+                return '<div class="result-row"><div><span class="result-label">' + r.l + '</span><span class="result-symbol">(' + r.s + ')</span></div><div class="result-value">' + r.v.toExponential(5) + ' ' + r.u + '</div></div>';
+            }).join('');
+           
+            document.getElementById('resultsContainer').innerHTML = html;
+
+            // CFL calculations
+            const wpe_dt = wpe * dt;
+            const dx_lambdaD = dx / lambdaD;
+            const vte_dt_dx = (vte * dt) / dx;
+            const wce_dt = wce * dt;
+	    const fce_dt = fce*dt;
+
+            const cflResults = [
+                { l: 'ω_pe * dt', v: wpe_dt, thresh: 0.2 },
+                { l: 'dx / λ_D', v: dx_lambdaD, thresh: 0.5 },
+                { l: 'v_te * dt / dx', v: vte_dt_dx, thresh: 0.5 },
+                { l: 'ω_ce * dt/2π', v: fce_dt, thresh: 0.05 }
+            ];
+
+            const cflHtml = cflResults.map(r => {
+                const valueStr = r.v.toExponential(5);
+                const isValid = r.v < r.thresh;
+                const className = isValid ? '' : 'warning';
+                return '<div class="result-row"><div><span class="result-label">' + r.l + '</span></div><div class="result-value ' + className + '">' + valueStr + ' (< ' + r.thresh + ')</div></div>';
+            }).join('');
+
+            document.getElementById('cflContainer').innerHTML = cflHtml;
+        }
+        document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calculate));
+        calculate();
+    </script>
+</body>
+</html>
